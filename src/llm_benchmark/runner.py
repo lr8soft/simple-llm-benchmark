@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Iterable
 
 from .config import AppConfig, BenchmarkConfig
+from .process import utf8_subprocess_env
 
 
 class RunnerError(RuntimeError):
@@ -135,7 +136,7 @@ def run_suite(
         return None
 
     run_dir = create_run_dir(config, benchmarks)
-    env = os.environ.copy()
+    env = utf8_subprocess_env()
     prefix = config.model.provider_env_prefix
     env[f"{prefix}_API_KEY"] = config.model.api_key
     env[f"{prefix}_BASE_URL"] = config.model.base_url

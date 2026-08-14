@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .process import utf8_subprocess_env
+
 
 class ReportError(RuntimeError):
     """Raised when logs cannot be converted into a report."""
@@ -39,6 +41,7 @@ def _load_log(path: Path) -> dict[str, Any]:
         capture_output=True,
         text=True,
         encoding="utf-8",
+        env=utf8_subprocess_env(),
     )
     if completed.returncode != 0:
         raise ReportError(f"Inspect 无法读取 {path}: {completed.stderr.strip()}")

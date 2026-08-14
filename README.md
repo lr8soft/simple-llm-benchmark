@@ -7,6 +7,7 @@
 - `quick-v1`：MMLU-Pro、GPQA Diamond、GSM8K、IFEval、HumanEval、MMMLU-ZH
 - API Key 直接写在本地 YAML 中，但不会进入运行快照、报告或 dry-run 命令
 - 并发、超时和 API 重试次数显式固定，避免无限重试
+- 启动 Inspect 子进程时强制 Python UTF-8 模式，兼容中文 Windows 的 GBK 默认编码
 - 每项 benchmark 单独记录日志；单项失败不会删除其他结果
 - `--dry-run` 检查最终 Inspect 命令，不消耗 token
 - 综合分采用配置里的显式权重，并保留全部原始子项
