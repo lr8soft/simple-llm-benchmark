@@ -39,6 +39,7 @@ def _doctor(config_path: str) -> int:
         ("IFEval checker", importlib.util.find_spec("instruction_following_eval") is not None, "Python package"),
         ("API Key", bool(config.model.api_key), "已配置" if config.model.api_key else "未配置"),
     ]
+    checks.append(("TLS verify", True, "开启" if config.model.tls_verify else "关闭（不安全）"))
     if any(item.id == "humaneval" for item in config.benchmarks):
         checks.append(("Docker (HumanEval)", shutil.which("docker") is not None, shutil.which("docker") or "未安装"))
     for name, ok, detail in checks:

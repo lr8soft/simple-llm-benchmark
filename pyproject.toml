@@ -28,6 +28,9 @@ dev = [
 [project.scripts]
 llm-benchmark = "llm_benchmark.cli:main"
 
+[project.entry-points.inspect_ai]
+llm_benchmark = "llm_benchmark.inspect_registry"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

@@ -18,9 +18,12 @@ class ModelConfig:
     base_url: str
     api_key: str
     provider: str = "benchmark"
+    tls_verify: bool = True
 
     @property
     def inspect_model(self) -> str:
+        if not self.tls_verify:
+            return f"tls-openai-api/{self.provider}/{self.model_id}"
         return f"openai-api/{self.provider}/{self.model_id}"
 
     @property
@@ -35,7 +38,9 @@ class BenchmarkConfig:
     dimension: str
     task: str
     weight: float
-    limit: int | None = None
+    samples: int | None = None
+    epochs: int = 1
+    max_tokens: int | None = None
     task_args: dict[str, Any] = field(default_factory=dict)
     metric_names: tuple[str, ...] = ("accuracy", "mean")
     scorer_contains: str | None = None
@@ -89,11 +94,17 @@ def load_config(path: str | Path) -> AppConfig:
     provider = str(model_raw.get("provider", "benchmark"))
     if not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", provider):
         raise ConfigError("model.provider 只能包含小写字母、数字、_ 和 -")
+    tls_raw = _mapping(model_raw.get("tls", {}), "model.tls")
+    tls_verify = tls_raw.get("verify", True)
+    if not isinstance(tls_verify, bool):
+        raise ConfigError("model.tls.verify 必须是布尔值 true 或 false")
+
     model = ModelConfig(
         model_id=str(model_raw["model_id"]),
         base_url=str(model_raw["base_url"]).rstrip("/"),
         api_key=str(model_raw["api_key"]),
         provider=provider,
+        tls_verify=tls_verify,
     )
 
     run_raw = _mapping(root.get("run", {}), "run")
@@ -120,9 +131,17 @@ def load_config(path: str | Path) -> AppConfig:
             raise ConfigError(f"{benchmark_id}.weight 必须是数字") from exc
         if weight <= 0:
             raise ConfigError(f"{benchmark_id}.weight 必须大于 0")
-        limit = data.get("limit")
-        if limit is not None and (not isinstance(limit, int) or limit <= 0):
-            raise ConfigError(f"{benchmark_id}.limit 必须是正整数或 null")
+        if "samples" in data and "limit" in data:
+            raise ConfigError(f"{benchmark_id} 不能同时设置 samples 和旧字段 limit")
+        samples = data.get("samples", data.get("limit"))
+        if samples is not None and (not isinstance(samples, int) or samples <= 0):
+            raise ConfigError(f"{benchmark_id}.samples 必须是正整数或 null")
+        epochs = data.get("epochs", 1)
+        if not isinstance(epochs, int) or epochs <= 0:
+            raise ConfigError(f"{benchmark_id}.epochs 必须是正整数")
+        max_tokens = data.get("max_tokens")
+        if max_tokens is not None and (not isinstance(max_tokens, int) or max_tokens <= 0):
+            raise ConfigError(f"{benchmark_id}.max_tokens 必须是正整数或 null")
         metric_names = data.get("metric_names", ["accuracy", "mean"])
         if not isinstance(metric_names, list) or not metric_names:
             raise ConfigError(f"{benchmark_id}.metric_names 必须是非空列表")
@@ -133,7 +152,9 @@ def load_config(path: str | Path) -> AppConfig:
                 dimension=str(data.get("dimension", benchmark_id)),
                 task=str(data.get("task", "")),
                 weight=weight,
-                limit=limit,
+                samples=samples,
+                epochs=epochs,
+                max_tokens=max_tokens,
                 task_args=_mapping(data.get("task_args", {}), f"{benchmark_id}.task_args"),
                 metric_names=tuple(str(name) for name in metric_names),
                 scorer_contains=(

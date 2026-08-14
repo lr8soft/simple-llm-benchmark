@@ -5,11 +5,15 @@ model:
   model_id: your-model-id
   base_url: https://api.example.com/v1
   api_key: your-api-key
+  tls:
+    # false 会完全关闭 HTTPS 证书校验，仅用于可信内网/自签名测试环境。
+    verify: true
 
 run:
   suite: quick-v1
   output_dir: runs
-  max_connections: 8
+  # 较慢或经过 Cloudflare 的自建网关建议从 2 开始，稳定后再提高。
+  max_connections: 2
   max_retries: 3
   timeout: 120
   temperature: 0
@@ -22,7 +26,9 @@ suites:
         label: MMLU-Pro
         dimension: Knowledge & reasoning
         task: inspect_evals/mmlu_pro
-        limit: 500
+        samples: 500
+        epochs: 1
+        max_tokens: 2048
         weight: 0.20
         task_args:
           fewshot: 0
@@ -33,7 +39,9 @@ suites:
         label: GPQA Diamond
         dimension: Science reasoning
         task: inspect_evals/gpqa_diamond
-        limit: 198
+        samples: 198
+        epochs: 1
+        max_tokens: 2048
         weight: 0.10
         task_args:
           cot: true
@@ -43,7 +51,9 @@ suites:
         label: GSM8K
         dimension: Mathematics
         task: inspect_evals/gsm8k
-        limit: 500
+        samples: 500
+        epochs: 1
+        max_tokens: 2048
         weight: 0.20
         task_args:
           fewshot: 0
@@ -53,7 +63,9 @@ suites:
         label: IFEval
         dimension: Instruction following
         task: inspect_evals/ifeval
-        limit: 541
+        samples: 541
+        epochs: 1
+        max_tokens: 2048
         weight: 0.20
         metric_names: [if_metric.prompt_strict_acc]
 
@@ -61,7 +73,9 @@ suites:
         label: HumanEval
         dimension: Code
         task: inspect_evals/humaneval
-        limit: 164
+        samples: 164
+        epochs: 1
+        max_tokens: 2048
         weight: 0.15
         metric_names: [accuracy]
 
@@ -69,10 +83,12 @@ suites:
         label: MMMLU-ZH
         dimension: Chinese knowledge
         task: inspect_evals/mmlu_0_shot
-        limit: 500
+        samples: 500
+        epochs: 1
+        max_tokens: 2048
         weight: 0.15
         task_args:
           language: ZH_CN
-          cot: false
+          cot: true
           shuffle: true
         metric_names: [accuracy]

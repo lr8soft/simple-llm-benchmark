@@ -22,3 +22,28 @@ def test_rejects_bad_weight_sum(tmp_path: Path) -> None:
     path.write_text(content.replace("weight: 0.20", "weight: 0.21", 1), encoding="utf-8")
     with pytest.raises(ConfigError, match="权重之和"):
         load_config(path)
+
+
+def test_can_disable_tls_verification(tmp_path: Path) -> None:
+    content = (ROOT / "benchmark.example.yaml").read_text(encoding="utf-8")
+    path = tmp_path / "benchmark.yaml"
+    path.write_text(content.replace("verify: true", "verify: false"), encoding="utf-8")
+    config = load_config(path)
+    assert config.model.tls_verify is False
+    assert config.model.inspect_model.startswith("tls-openai-api/")
+
+
+def test_rejects_non_boolean_tls_verify(tmp_path: Path) -> None:
+    content = (ROOT / "benchmark.example.yaml").read_text(encoding="utf-8")
+    path = tmp_path / "benchmark.yaml"
+    path.write_text(content.replace("verify: true", 'verify: "false"'), encoding="utf-8")
+    with pytest.raises(ConfigError, match="tls.verify"):
+        load_config(path)
+
+
+def test_legacy_limit_remains_compatible(tmp_path: Path) -> None:
+    content = (ROOT / "benchmark.example.yaml").read_text(encoding="utf-8")
+    path = tmp_path / "legacy.yaml"
+    path.write_text(content.replace("samples: 500", "limit: 500", 1), encoding="utf-8")
+    config = load_config(path)
+    assert config.benchmarks[0].samples == 500

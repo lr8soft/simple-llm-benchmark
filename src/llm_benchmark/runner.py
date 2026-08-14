@@ -70,8 +70,13 @@ def build_command(
         "--seed",
         str(config.run.seed),
     ]
-    if benchmark.limit is not None:
-        command.extend(["--limit", str(benchmark.limit)])
+    if benchmark.samples is not None:
+        command.extend(["--limit", str(benchmark.samples)])
+    command.extend(["--epochs", str(benchmark.epochs)])
+    if benchmark.max_tokens is not None:
+        command.extend(["--max-tokens", str(benchmark.max_tokens)])
+    if not config.model.tls_verify:
+        command.extend(["-M", "tls_verify=false"])
     for key, value in benchmark.task_args.items():
         if isinstance(value, bool):
             rendered = "true" if value else "false"
@@ -96,6 +101,7 @@ def _manifest(config: AppConfig, benchmarks: list[BenchmarkConfig]) -> dict:
             "model_id": config.model.model_id,
             "base_url": config.model.base_url,
             "provider": config.model.provider,
+            "tls_verify": config.model.tls_verify,
         },
         "run": {
             "max_connections": config.run.max_connections,
@@ -119,6 +125,14 @@ def create_run_dir(config: AppConfig, benchmarks: list[BenchmarkConfig]) -> Path
     return run_dir
 
 
+def build_run_env(config: AppConfig) -> dict[str, str]:
+    env = utf8_subprocess_env()
+    prefix = config.model.provider_env_prefix
+    env[f"{prefix}_API_KEY"] = config.model.api_key
+    env[f"{prefix}_BASE_URL"] = config.model.base_url
+    return env
+
+
 def run_suite(
     config: AppConfig,
     only: Iterable[str] | None = None,
@@ -136,10 +150,7 @@ def run_suite(
         return None
 
     run_dir = create_run_dir(config, benchmarks)
-    env = utf8_subprocess_env()
-    prefix = config.model.provider_env_prefix
-    env[f"{prefix}_API_KEY"] = config.model.api_key
-    env[f"{prefix}_BASE_URL"] = config.model.base_url
+    env = build_run_env(config)
 
     failures: list[str] = []
     for benchmark in benchmarks:

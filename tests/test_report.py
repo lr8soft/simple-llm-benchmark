@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from llm_benchmark.report import collect_results, render_report, write_report
+from llm_benchmark.report import _load_log, collect_results, render_report, write_report
 
 
 def _run_fixture(tmp_path: Path) -> Path:
@@ -32,7 +32,9 @@ def _run_fixture(tmp_path: Path) -> Path:
             "dimension": "Reasoning",
             "task": "example/alpha",
             "weight": 1.0,
-            "limit": 10,
+            "samples": 10,
+            "epochs": 1,
+            "max_tokens": 2048,
             "task_args": {},
             "metric_names": ["accuracy"],
             "scorer_contains": None,
@@ -73,6 +75,8 @@ def test_write_report(tmp_path: Path) -> None:
     assert markdown_path.exists()
     assert json_path.exists()
     assert "test-model" in markdown_path.read_text(encoding="utf-8")
+    status = json.loads((run_dir / "run-status.json").read_text(encoding="utf-8"))
+    assert status == {"failed": [], "complete": True}
 
 
 def test_extracts_nested_inspect_metric(tmp_path: Path) -> None:
@@ -95,3 +99,41 @@ def test_extracts_nested_inspect_metric(tmp_path: Path) -> None:
     _, results = collect_results(run_dir)
     assert results[0].score == pytest.approx(0.8)
     assert results[0].stderr == pytest.approx(0.05)
+
+
+def test_error_detail_and_status_are_reported(tmp_path: Path) -> None:
+    run_dir = _run_fixture(tmp_path)
+    log_path = run_dir / "logs" / "alpha" / "alpha.json"
+    log = json.loads(log_path.read_text(encoding="utf-8"))
+    log.update({
+        "status": "error",
+        "error": {"message": "RetryError"},
+        "results": None,
+        "samples": [{
+            "events": [{
+                "event": "model",
+                "error": {"message": "Error code: 504 - origin_gateway_timeout"},
+            }],
+        }],
+    })
+    log_path.write_text(json.dumps(log), encoding="utf-8")
+    markdown_path, _ = write_report(run_dir)
+    markdown = markdown_path.read_text(encoding="utf-8")
+    assert "## Failures" in markdown
+    assert "origin_gateway_timeout" in markdown
+    status = json.loads((run_dir / "run-status.json").read_text(encoding="utf-8"))
+    assert status == {"failed": ["alpha"], "complete": False}
+
+
+def test_eval_reader_finds_inspect_next_to_python(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    eval_path = tmp_path / "sample.eval"
+    eval_path.write_text("placeholder", encoding="utf-8")
+    monkeypatch.setattr("llm_benchmark.report.inspect_executable", lambda: "inspect.exe")
+
+    class Completed:
+        returncode = 0
+        stdout = '{"status": "success"}'
+        stderr = ""
+
+    monkeypatch.setattr("llm_benchmark.report.subprocess.run", lambda *args, **kwargs: Completed())
+    assert _load_log(eval_path)["status"] == "success"

@@ -6,14 +6,16 @@
 
 - `quick-v1`：MMLU-Pro、GPQA Diamond、GSM8K、IFEval、HumanEval、MMMLU-ZH
 - API Key 直接写在本地 YAML 中，但不会进入运行快照、报告或 dry-run 命令
+- 每项可独立设置样本数量、重复轮次和最大输出 token
 - 并发、超时和 API 重试次数显式固定，避免无限重试
+- 支持通过布尔配置关闭 HTTPS 证书校验
 - 启动 Inspect 子进程时强制 Python UTF-8 模式，兼容中文 Windows 的 GBK 默认编码
 - 每项 benchmark 单独记录日志；单项失败不会删除其他结果
 - `--dry-run` 检查最终 Inspect 命令，不消耗 token
 - 综合分采用配置里的显式权重，并保留全部原始子项
 - 同时输出 `report.md` 和 `results.json`
 
-> Quick suite 使用 Inspect 的固定 seed、shuffle 和 `--limit`，适合低成本内部横向比较；它不是官方完整榜单结果。要发表或与论文数字比较，请去掉各项 `limit`、固定依赖版本，并记录完整配置。
+> Quick suite 使用 Inspect 的固定 seed、shuffle 和样本上限，适合低成本内部横向比较；它不是官方完整榜单结果。要发表或与论文数字比较，请把 `samples` 设为 `null`、固定依赖版本，并记录完整配置。
 
 ## 安装
 
@@ -36,6 +38,27 @@ llm-benchmark doctor -c benchmark.example.yaml
 llm-benchmark run -c benchmark.example.yaml --dry-run
 llm-benchmark run -c benchmark.example.yaml
 ```
+
+每个 benchmark 的运行规模单独配置：
+
+```yaml
+- id: gpqa_diamond
+  samples: 198     # 抽取多少条；null 表示完整数据集
+  epochs: 1        # 每条重复跑几次
+  max_tokens: 2048 # 每次模型响应的最大输出 token
+```
+
+基础请求数约为 `samples × epochs`，API 重试和少数多轮任务会产生额外请求。显式写 `epochs: 1` 也会覆盖任务自身的默认轮次，例如 GPQA Diamond 的默认 4 轮。
+
+如果 API 使用自签名证书，并且需要直接跳过证书校验：
+
+```yaml
+model:
+  tls:
+    verify: false
+```
+
+`verify` 默认为 `true`。设为 `false` 时，程序会通过自定义 Inspect OpenAI-compatible provider 创建 `httpx.AsyncClient(verify=False)`，完全关闭模型 API 的 HTTPS 证书验证。该模式容易受到中间人攻击，只应在可信内网或临时测试环境使用。修改 provider entry point 后请重新执行一次 `python -m pip install -e ".[inspect,dev]"`。
 
 只跑便宜的 smoke test：
 
@@ -68,7 +91,7 @@ inspect view --log-dir runs/<timestamp>-<model-id>/logs
 
 ## 公平比较约束
 
-只有 suite、task 版本、prompt、few-shot、temperature、输出预算和抽样完全一致的运行才应直接排序。API 失败或缺失指标不会被算作 0 分；报告会把综合分标记为“仅按已完成项目重新归一化”，并展示 coverage，避免半套结果伪装成完整得分。
+只有 suite、task 版本、prompt、few-shot、temperature、输出预算、样本数和重复轮次完全一致的运行才应直接排序。API 失败或缺失指标不会被算作 0 分；报告会把综合分标记为“仅按已完成项目重新归一化”，并展示 coverage 与错误摘要，避免半套结果伪装成完整得分。
 
 HumanEval 会执行模型生成的代码。正式运行前请确认 Inspect 的 sandbox 配置符合你的安全边界，不要在包含敏感文件或凭据的无隔离环境中直接执行未知代码。
 

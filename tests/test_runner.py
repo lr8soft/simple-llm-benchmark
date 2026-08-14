@@ -1,6 +1,8 @@
 from pathlib import Path
 
 from llm_benchmark.config import load_config
+from dataclasses import replace
+
 from llm_benchmark.runner import _manifest, build_command, inspect_executable
 
 
@@ -16,6 +18,8 @@ def test_command_does_not_contain_api_key() -> None:
     assert f"--model openai-api/benchmark/{config.model.model_id}" in rendered
     assert "-T fewshot=0" in rendered
     assert "--limit 500" in rendered
+    assert "--epochs 1" in rendered
+    assert "--max-tokens 2048" in rendered
     assert "--max-retries 3" in rendered
     assert "--timeout 120" in rendered
 
@@ -33,3 +37,13 @@ def test_manifest_does_not_persist_api_key() -> None:
     manifest = _manifest(config, list(config.benchmarks))
     assert "api_key" not in manifest["model"]
     assert config.model.api_key not in str(manifest)
+
+
+def test_tls_verify_false_uses_insecure_provider() -> None:
+    config = load_config(ROOT / "benchmark.example.yaml")
+    configured = replace(config, model=replace(config.model, tls_verify=False))
+    command = build_command("inspect", configured, configured.benchmarks[0], Path("logs"))
+    rendered = " ".join(command)
+    assert "--model tls-openai-api/benchmark/" in rendered
+    assert "-M tls_verify=false" in rendered
+    assert _manifest(configured, list(configured.benchmarks))["model"]["tls_verify"] is False

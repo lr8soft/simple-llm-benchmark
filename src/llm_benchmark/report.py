@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from .process import utf8_subprocess_env
+from .runner import inspect_executable
 
 
 class ReportError(RuntimeError):
@@ -27,16 +27,21 @@ class BenchmarkResult:
     metric: str | None
     weight: float
     log_file: str | None
+    error: str | None
 
 
-def _load_log(path: Path) -> dict[str, Any]:
+def _load_log(path: Path, *, header_only: bool = True) -> dict[str, Any]:
     if path.suffix.lower() == ".json":
         return json.loads(path.read_text(encoding="utf-8"))
-    inspect = shutil.which("inspect")
+    inspect = inspect_executable()
     if not inspect:
         raise ReportError(f"读取 {path.name} 需要 Inspect CLI")
+    command = [inspect, "log", "dump"]
+    if header_only:
+        command.append("--header-only")
+    command.append(str(path))
     completed = subprocess.run(
-        [inspect, "log", "dump", "--header-only", str(path)],
+        command,
         check=False,
         capture_output=True,
         text=True,
@@ -46,6 +51,44 @@ def _load_log(path: Path) -> dict[str, Any]:
     if completed.returncode != 0:
         raise ReportError(f"Inspect 无法读取 {path}: {completed.stderr.strip()}")
     return json.loads(completed.stdout)
+
+
+def _error_message(value: Any) -> str | None:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        message = value.get("message")
+        return message if isinstance(message, str) else None
+    return None
+
+
+def _compact_error(value: str | None, limit: int = 600) -> str | None:
+    if not value:
+        return None
+    compact = " ".join(value.split())
+    return compact if len(compact) <= limit else compact[: limit - 1] + "…"
+
+
+def _extract_error(header: dict[str, Any], log_path: Path) -> str | None:
+    if str(header.get("status", "unknown")) == "success":
+        return None
+    try:
+        detail = _load_log(log_path, header_only=False)
+    except (ReportError, json.JSONDecodeError):
+        detail = header
+
+    messages: list[str] = []
+    for sample in detail.get("samples") or []:
+        for event in sample.get("events") or []:
+            message = _error_message(event.get("error"))
+            if message and "CancelledError" not in message:
+                messages.append(message)
+    # Model/API failures contain the useful HTTP response while Inspect's
+    # top-level RetryError often hides it. Prefer these detailed messages.
+    if messages:
+        preferred = next((message for message in messages if "Error code:" in message), messages[0])
+        return _compact_error(preferred)
+    return _compact_error(_error_message(detail.get("error")) or _error_message(header.get("error")))
 
 
 def _metric_value(metric: Any) -> float | None:
@@ -141,6 +184,7 @@ def collect_results(run_dir: str | Path) -> tuple[dict[str, Any], list[Benchmark
                 metric=None,
                 weight=float(benchmark["weight"]),
                 log_file=None,
+                error="未生成 Inspect 日志",
             ))
             continue
         log = _load_log(log_path)
@@ -158,6 +202,7 @@ def collect_results(run_dir: str | Path) -> tuple[dict[str, Any], list[Benchmark
             metric=metric,
             weight=float(benchmark["weight"]),
             log_file=str(log_path.relative_to(root)),
+            error=_extract_error(log, log_path),
         ))
     return manifest, collected
 
@@ -205,6 +250,12 @@ def render_report(manifest: dict[str, Any], results: list[BenchmarkResult]) -> t
             f"| {sample_text} | {item.status} | {item.weight * 100:.0f}% |"
         )
 
+    failures = [item for item in results if item.status != "success" or item.score is None]
+    if failures:
+        lines.extend(["", "## Failures", ""])
+        for item in failures:
+            lines.append(f"- `{item.id}`: {item.error or '任务未成功或没有可用指标'}")
+
     lines.extend([
         "",
         "## Reproducibility",
@@ -240,4 +291,9 @@ def write_report(run_dir: str | Path) -> tuple[Path, Path]:
     json_path = root / "results.json"
     markdown_path.write_text(markdown, encoding="utf-8")
     json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    failed = [item.id for item in results if item.status != "success" or item.score is None]
+    (root / "run-status.json").write_text(
+        json.dumps({"failed": failed, "complete": not failed}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     return markdown_path, json_path
