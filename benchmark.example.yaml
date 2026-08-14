@@ -1,0 +1,78 @@
+version: 1
+
+model:
+  provider: benchmark
+  model_id: your-model-id
+  base_url: https://api.example.com/v1
+  api_key_env: LLM_BENCHMARK_API_KEY
+
+run:
+  suite: quick-v1
+  output_dir: runs
+  max_connections: 8
+  max_retries: 3
+  timeout: 120
+  temperature: 0
+  seed: 42
+
+suites:
+  quick-v1:
+    benchmarks:
+      - id: mmlu_pro
+        label: MMLU-Pro
+        dimension: Knowledge & reasoning
+        task: inspect_evals/mmlu_pro
+        limit: 500
+        weight: 0.20
+        task_args:
+          fewshot: 0
+          shuffle: true
+        metric_names: [accuracy]
+
+      - id: gpqa_diamond
+        label: GPQA Diamond
+        dimension: Science reasoning
+        task: inspect_evals/gpqa_diamond
+        limit: 198
+        weight: 0.10
+        task_args:
+          cot: true
+        metric_names: [accuracy]
+
+      - id: gsm8k
+        label: GSM8K
+        dimension: Mathematics
+        task: inspect_evals/gsm8k
+        limit: 500
+        weight: 0.20
+        task_args:
+          fewshot: 0
+        metric_names: [accuracy]
+
+      - id: ifeval
+        label: IFEval
+        dimension: Instruction following
+        task: inspect_evals/ifeval
+        limit: 541
+        weight: 0.20
+        metric_names: [if_metric.prompt_strict_acc]
+
+      - id: humaneval
+        label: HumanEval
+        dimension: Code
+        task: inspect_evals/humaneval
+        limit: 164
+        weight: 0.15
+        metric_names: [accuracy]
+
+      - id: mmmlu_zh
+        label: MMMLU-ZH
+        dimension: Chinese knowledge
+        task: inspect_evals/mmlu_0_shot
+        limit: 500
+        weight: 0.15
+        task_args:
+          language: ZH_CN
+          cot: false
+          shuffle: true
+        metric_names: [accuracy]

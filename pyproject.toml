@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llm-benchmark"
+version = "0.1.0"
+description = "Reproducible benchmark runner for OpenAI-compatible LLM APIs"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "PyYAML>=6,<7",
+]
+
+[project.optional-dependencies]
+inspect = [
+  "inspect-ai==0.3.258",
+  "inspect-evals==0.17.0",
+  # Inspect Evals locks this fork/revision; the package is not published on PyPI.
+  "instruction-following-eval @ git+https://github.com/josejg/instruction_following_eval@0c495b2",
+  "langdetect>=1,<2",
+  "openai==2.54.0",
+]
+dev = [
+  "pytest>=8,<10",
+]
+
+[project.scripts]
+llm-benchmark = "llm_benchmark.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
