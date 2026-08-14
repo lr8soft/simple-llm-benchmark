@@ -1,11 +1,11 @@
 # LLM Benchmark
 
-面向 OpenAI-compatible Chat Completions API 的可复现 LLM 评分工具。v0.1 使用 Inspect AI / Inspect Evals 运行官方任务，本项目负责统一配置、隔离 API Key、逐项执行和生成 Markdown/JSON 报告。
+面向 OpenAI-compatible Chat Completions API 的可复现 LLM 评分工具。v0.1 使用 Inspect AI / Inspect Evals 运行官方任务，本项目负责统一配置、逐项执行和生成 Markdown/JSON 报告。
 
 ## v0.1 包含什么
 
 - `quick-v1`：MMLU-Pro、GPQA Diamond、GSM8K、IFEval、HumanEval、MMMLU-ZH
-- API Key 只从环境变量读取，不进入配置快照
+- API Key 直接写在本地 YAML 中，但不会进入运行快照、报告或 dry-run 命令
 - 并发、超时和 API 重试次数显式固定，避免无限重试
 - 每项 benchmark 单独记录日志；单项失败不会删除其他结果
 - `--dry-run` 检查最终 Inspect 命令，不消耗 token
@@ -28,10 +28,9 @@ IFEval 检查器使用 Inspect Evals 锁定的 fork 与 Git revision 安装；�
 
 ## 配置与运行
 
-复制并修改 `benchmark.example.yaml`，至少填写 `model_id` 和 `base_url`。然后只在当前 shell 设置密钥：
+复制并修改 `benchmark.example.yaml`，填写 `model_id`、`base_url` 和 `api_key`：
 
 ```powershell
-$env:LLM_BENCHMARK_API_KEY = "your-key"
 llm-benchmark doctor -c benchmark.example.yaml
 llm-benchmark run -c benchmark.example.yaml --dry-run
 llm-benchmark run -c benchmark.example.yaml

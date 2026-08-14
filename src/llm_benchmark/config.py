@@ -16,7 +16,7 @@ class ConfigError(ValueError):
 class ModelConfig:
     model_id: str
     base_url: str
-    api_key_env: str
+    api_key: str
     provider: str = "benchmark"
 
     @property
@@ -82,7 +82,7 @@ def load_config(path: str | Path) -> AppConfig:
         raise ConfigError("当前仅支持 version: 1")
 
     model_raw = _mapping(root.get("model"), "model")
-    required_model = ("model_id", "base_url", "api_key_env")
+    required_model = ("model_id", "base_url", "api_key")
     missing = [key for key in required_model if not model_raw.get(key)]
     if missing:
         raise ConfigError(f"model 缺少字段：{', '.join(missing)}")
@@ -92,7 +92,7 @@ def load_config(path: str | Path) -> AppConfig:
     model = ModelConfig(
         model_id=str(model_raw["model_id"]),
         base_url=str(model_raw["base_url"]).rstrip("/"),
-        api_key_env=str(model_raw["api_key_env"]),
+        api_key=str(model_raw["api_key"]),
         provider=provider,
     )
 

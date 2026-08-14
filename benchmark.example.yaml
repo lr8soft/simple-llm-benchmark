@@ -4,7 +4,7 @@ model:
   provider: benchmark
   model_id: your-model-id
   base_url: https://api.example.com/v1
-  api_key_env: LLM_BENCHMARK_API_KEY
+  api_key: your-api-key
 
 run:
   suite: quick-v1

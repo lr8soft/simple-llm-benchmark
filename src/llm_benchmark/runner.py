@@ -95,7 +95,6 @@ def _manifest(config: AppConfig, benchmarks: list[BenchmarkConfig]) -> dict:
             "model_id": config.model.model_id,
             "base_url": config.model.base_url,
             "provider": config.model.provider,
-            "api_key_env": config.model.api_key_env,
         },
         "run": {
             "max_connections": config.run.max_connections,
@@ -129,10 +128,6 @@ def run_suite(
     if not dry_run and inspect_executable() is None:
         raise RunnerError('未找到 Inspect CLI；请执行 pip install -e ".[inspect]"')
 
-    api_key = os.environ.get(config.model.api_key_env)
-    if not dry_run and not api_key:
-        raise RunnerError(f"环境变量 {config.model.api_key_env} 未设置")
-
     if dry_run:
         for benchmark in benchmarks:
             command = build_command(executable, config, benchmark, Path("<run-dir>") / "logs" / benchmark.id)
@@ -142,7 +137,7 @@ def run_suite(
     run_dir = create_run_dir(config, benchmarks)
     env = os.environ.copy()
     prefix = config.model.provider_env_prefix
-    env[f"{prefix}_API_KEY"] = api_key or ""
+    env[f"{prefix}_API_KEY"] = config.model.api_key
     env[f"{prefix}_BASE_URL"] = config.model.base_url
 
     failures: list[str] = []

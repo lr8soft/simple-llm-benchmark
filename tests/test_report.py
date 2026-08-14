@@ -18,7 +18,6 @@ def _run_fixture(tmp_path: Path) -> Path:
             "model_id": "test-model",
             "base_url": "https://example.test/v1",
             "provider": "benchmark",
-            "api_key_env": "SECRET",
         },
         "run": {
             "temperature": 0.0,

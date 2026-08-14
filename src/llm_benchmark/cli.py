@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
-import os
 import shutil
 import sys
 from pathlib import Path
@@ -38,7 +37,7 @@ def _doctor(config_path: str) -> int:
         ("Inspect CLI", inspect_executable() is not None, inspect_executable() or "未安装"),
         ("inspect_evals", importlib.util.find_spec("inspect_evals") is not None, "Python package"),
         ("IFEval checker", importlib.util.find_spec("instruction_following_eval") is not None, "Python package"),
-        (config.model.api_key_env, bool(os.environ.get(config.model.api_key_env)), "已设置" if os.environ.get(config.model.api_key_env) else "未设置"),
+        ("API Key", bool(config.model.api_key), "已配置" if config.model.api_key else "未配置"),
     ]
     if any(item.id == "humaneval" for item in config.benchmarks):
         checks.append(("Docker (HumanEval)", shutil.which("docker") is not None, shutil.which("docker") or "未安装"))

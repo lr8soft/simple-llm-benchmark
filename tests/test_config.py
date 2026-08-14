@@ -10,7 +10,8 @@ ROOT = Path(__file__).parents[1]
 
 def test_example_config_is_valid() -> None:
     config = load_config(ROOT / "benchmark.example.yaml")
-    assert config.model.inspect_model == "openai-api/benchmark/your-model-id"
+    assert config.model.inspect_model == f"openai-api/benchmark/{config.model.model_id}"
+    assert config.model.api_key
     assert len(config.benchmarks) == 6
     assert sum(item.weight for item in config.benchmarks) == pytest.approx(1.0)
 
